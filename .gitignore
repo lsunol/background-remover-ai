@@ -206,3 +206,4 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 assets/lena_no_bg.png
+.vscode/settings.json

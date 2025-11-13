@@ -67,34 +67,53 @@
 
         <!-- Two-Column Layout: Original | Background Removed -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <!-- Left Column: Original Image -->
-          <div class="card">
+          <!-- Left Column: Original Image with Radar Scan Effect -->
+          <div class="card flex flex-col">
             <h3 class="text-lg font-semibold mb-4">Original</h3>
-            <div class="checker-pattern rounded-lg p-4">
-              <img :src="uploadedImage" alt="Original" class="w-full h-auto mx-auto" />
+            <div class="flex-1 checker-pattern rounded-lg p-4 flex items-center justify-center relative overflow-hidden">
+              <!-- Radar scan effect overlay -->
+              <div v-if="isScanning" class="absolute inset-0 pointer-events-none">
+                <div class="radar-scan absolute left-0 w-full h-1 bg-gradient-to-b from-primary/50 to-transparent"
+                     :style="{ top: `${scanProgress}%` }">
+                </div>
+                <!-- Radar points -->
+                <div v-for="(point, idx) in radarPoints" :key="idx"
+                     class="radar-point absolute rounded-full bg-primary"
+                     :style="{
+                       left: `${point.x}%`,
+                       top: `${scanProgress}%`,
+                       width: '8px',
+                       height: '8px',
+                       opacity: point.opacity,
+                       transform: 'translate(-50%, -50%)',
+                       transition: `opacity 0.6s ease-out`
+                     }">
+                </div>
+              </div>
+              <img :src="uploadedImage" alt="Original" class="w-full h-auto mx-auto relative z-10" />
             </div>
           </div>
 
           <!-- Right Column: Background Removed -->
-          <div class="card">
+          <div class="card flex flex-col">
             <h3 class="text-lg font-semibold mb-4">Background Removed</h3>
             
-            <!-- Model Buttons (shown when no results) -->
-            <div v-if="selectedModels.length === 0" class="space-y-4">
-              <div class="checker-pattern rounded-lg p-12 mb-4 flex items-center justify-center min-h-64">
-                <div class="text-center text-gray-400">
-                  <p class="text-sm mb-4">Select a model to process</p>
-                </div>
+            <!-- Container with equal height to left column -->
+            <div v-if="selectedModels.length === 0" class="flex-1 checker-pattern rounded-lg p-4 flex flex-col items-center justify-center">
+              <!-- Text section -->
+              <div class="text-center mb-8 flex-1 flex flex-col justify-center">
+                <p class="text-lg font-medium text-gray-600">Select a model to process</p>
               </div>
               
-              <div class="grid grid-cols-1 gap-3">
+              <!-- Model buttons section (bottom 50% area) -->
+              <div class="w-full grid grid-cols-1 gap-3">
                 <button
                   v-for="model in models"
                   :key="model"
                   @click="processWithModel(model)"
                   :disabled="processing"
-                  :class="['p-3 border-2 rounded-lg transition-all font-medium', 
-                           processing ? 'opacity-50 cursor-not-allowed bg-gray-50 border-gray-200' : 'border-primary bg-blue-50 hover:bg-blue-100 cursor-pointer']"
+                  :class="['p-3 border-2 rounded-lg transition-all font-medium text-base', 
+                           processing ? 'opacity-50 cursor-not-allowed bg-gray-50 border-gray-200' : 'border-primary bg-blue-50 hover:bg-blue-100 cursor-pointer text-gray-900']"
                 >
                   <span>{{ model.toUpperCase() }}</span>
                   <span v-if="processing && currentModel === model" class="ml-2 text-sm">Processing...</span>
@@ -103,10 +122,10 @@
             </div>
 
             <!-- Results Display -->
-            <div v-else>
-              <div v-for="model in selectedModels" :key="model" class="space-y-4">
-                <div v-if="results[model]">
-                  <div class="checker-pattern rounded-lg p-4 mb-4">
+            <div v-else class="flex-1 flex flex-col">
+              <div v-for="model in selectedModels" :key="model" class="flex-1 flex flex-col">
+                <div v-if="results[model]" class="flex-1 flex flex-col">
+                  <div class="flex-1 checker-pattern rounded-lg p-4 mb-4 flex items-center justify-center overflow-hidden">
                     <img :src="results[model].image" alt="Result" class="w-full h-auto mx-auto" />
                   </div>
                   
@@ -122,7 +141,7 @@
                     Download {{ model.toUpperCase() }}
                   </button>
                 </div>
-                <div v-else class="checker-pattern rounded-lg p-12 flex items-center justify-center min-h-48">
+                <div v-else class="flex-1 checker-pattern rounded-lg p-4 flex items-center justify-center">
                   <div class="text-center text-gray-400">
                     <p class="text-sm">Processing with {{ model.toUpperCase() }}...</p>
                   </div>
@@ -181,7 +200,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import apiService from './services/api'
 // @ts-ignore - import image asset from parent directory
 import portfolioLogo from '../../assets/img/ls-brain-transparent.png'
@@ -195,6 +214,16 @@ const currentModel = ref<string | null>(null)
 const error = ref<string | null>(null)
 const isDragging = ref(false)
 
+// Radar scan animation
+const isScanning = ref(false)
+const scanProgress = ref(0)
+const radarPoints = ref<Array<{ x: number; opacity: number }>>([])
+
+interface RadarPoint {
+  x: number
+  opacity: number
+}
+
 const citationData = {
   title: 'Bilateral Reference for High-Resolution Dichotomous Image Segmentation',
   authors: ['Zheng, Peng', 'Gao, Dehong', 'Fan, Deng-Ping', 'Liu, Li', 'Laaksonen, Jorma', 'Ouyang, Wanli', 'Sebe, Nicu'],
@@ -207,6 +236,46 @@ const citationData = {
   journal={CAAI Artificial Intelligence Research},
   year={2024}
 }`
+}
+
+// Radar animation effect
+function startRadarScan() {
+  isScanning.value = true
+  scanProgress.value = 0
+  const startTime = Date.now()
+  const duration = 3000 // 3 seconds
+
+  const animateRadar = () => {
+    const elapsed = Date.now() - startTime
+    const progress = elapsed / duration
+
+    if (progress >= 1) {
+      isScanning.value = false
+      scanProgress.value = 0
+      radarPoints.value = []
+      return
+    }
+
+    scanProgress.value = progress * 100
+
+    // Generate new points at current scan line
+    if (Math.random() > 0.6) {
+      const point: RadarPoint = {
+        x: Math.random() * 100,
+        opacity: 1
+      }
+      radarPoints.value = [...radarPoints.value, point]
+
+      // Fade out point
+      setTimeout(() => {
+        radarPoints.value = radarPoints.value.filter(p => p !== point)
+      }, 600)
+    }
+
+    requestAnimationFrame(animateRadar)
+  }
+
+  animateRadar()
 }
 
 function handleDrop(e: DragEvent) {
@@ -242,6 +311,9 @@ async function processWithModel(model: string) {
   error.value = null
   processing.value = true
   currentModel.value = model
+  
+  // Start radar scan animation
+  startRadarScan()
 
   try {
     const file = (window as any).__uploadedFile
@@ -284,6 +356,9 @@ function reset() {
   results.value = {}
   selectedModels.value = []
   error.value = null
+  isScanning.value = false
+  scanProgress.value = 0
+  radarPoints.value = []
   delete (window as any).__uploadedFile
 }
 </script>

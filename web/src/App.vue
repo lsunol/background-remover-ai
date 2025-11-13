@@ -65,28 +65,9 @@
           </button>
         </div>
 
-        <!-- Model Selection -->
-        <div class="card mb-6">
-          <h3 class="text-lg font-semibold mb-4">Select Model</h3>
-          <div class="grid grid-cols-2 gap-4">
-            <button
-              v-for="model in models"
-              :key="model"
-              @click="processWithModel(model)"
-              :disabled="processing"
-              :class="['p-4 border-2 rounded-lg transition-all', 
-                       selectedModels.includes(model) ? 'border-primary bg-blue-50' : 'border-gray-200 hover:border-gray-300',
-                       processing ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer']"
-            >
-              <span class="font-medium">{{ model.toUpperCase() }}</span>
-              <span v-if="processing && currentModel === model" class="ml-2 text-sm text-gray-500">Processing...</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Results Comparison -->
+        <!-- Two-Column Layout: Original | Background Removed -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <!-- Original Image -->
+          <!-- Left Column: Original Image -->
           <div class="card">
             <h3 class="text-lg font-semibold mb-4">Original</h3>
             <div class="checker-pattern rounded-lg p-4">
@@ -94,27 +75,59 @@
             </div>
           </div>
 
-          <!-- Processed Results -->
-          <div v-for="model in selectedModels" :key="model" class="card">
-            <h3 class="text-lg font-semibold mb-4">{{ model.toUpperCase() }} Result</h3>
-            <div v-if="results[model]">
-              <div class="checker-pattern rounded-lg p-4 mb-4">
-                <img :src="results[model].image" alt="Result" class="w-full h-auto mx-auto" />
+          <!-- Right Column: Background Removed -->
+          <div class="card">
+            <h3 class="text-lg font-semibold mb-4">Background Removed</h3>
+            
+            <!-- Model Buttons (shown when no results) -->
+            <div v-if="selectedModels.length === 0" class="space-y-4">
+              <div class="checker-pattern rounded-lg p-12 mb-4 flex items-center justify-center min-h-64">
+                <div class="text-center text-gray-400">
+                  <p class="text-sm mb-4">Select a model to process</p>
+                </div>
               </div>
               
-              <!-- Metadata -->
-              <div class="text-sm text-gray-600 mb-4">
-                <p><strong>Device:</strong> {{ results[model].metadata.device_used }}</p>
-                <p><strong>Size:</strong> {{ results[model].metadata.processed_size.join(' x ') }}px</p>
+              <div class="grid grid-cols-1 gap-3">
+                <button
+                  v-for="model in models"
+                  :key="model"
+                  @click="processWithModel(model)"
+                  :disabled="processing"
+                  :class="['p-3 border-2 rounded-lg transition-all font-medium', 
+                           processing ? 'opacity-50 cursor-not-allowed bg-gray-50 border-gray-200' : 'border-primary bg-blue-50 hover:bg-blue-100 cursor-pointer']"
+                >
+                  <span>{{ model.toUpperCase() }}</span>
+                  <span v-if="processing && currentModel === model" class="ml-2 text-sm">Processing...</span>
+                </button>
               </div>
-
-              <!-- Download Button -->
-              <button @click="downloadImage(results[model].image, model)" class="btn-primary w-full">
-                Download {{ model.toUpperCase() }}
-              </button>
             </div>
-            <div v-else class="text-center text-gray-400 py-12">
-              <p>Click "{{ model.toUpperCase() }}" to process</p>
+
+            <!-- Results Display -->
+            <div v-else>
+              <div v-for="model in selectedModels" :key="model" class="space-y-4">
+                <div v-if="results[model]">
+                  <div class="checker-pattern rounded-lg p-4 mb-4">
+                    <img :src="results[model].image" alt="Result" class="w-full h-auto mx-auto" />
+                  </div>
+                  
+                  <!-- Metadata -->
+                  <div class="text-sm text-gray-600 mb-4 p-3 bg-gray-50 rounded">
+                    <p><strong>Model:</strong> {{ model.toUpperCase() }}</p>
+                    <p><strong>Device:</strong> {{ results[model].metadata.device_used }}</p>
+                    <p><strong>Size:</strong> {{ results[model].metadata.processed_size.join(' x ') }}px</p>
+                  </div>
+
+                  <!-- Download Button -->
+                  <button @click="downloadImage(results[model].image, model)" class="btn-primary w-full">
+                    Download {{ model.toUpperCase() }}
+                  </button>
+                </div>
+                <div v-else class="checker-pattern rounded-lg p-12 flex items-center justify-center min-h-48">
+                  <div class="text-center text-gray-400">
+                    <p class="text-sm">Processing with {{ model.toUpperCase() }}...</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

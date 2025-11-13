@@ -100,24 +100,24 @@
             
             <!-- Container with equal height to left column -->
             <div v-if="selectedModels.length === 0" class="flex-1 checker-pattern rounded-lg p-4 flex flex-col items-center justify-center">
-              <!-- Text section -->
-              <div class="text-center mb-8 flex-1 flex flex-col justify-center">
-                <p class="text-lg font-medium text-gray-600">Select a model to process</p>
-              </div>
-              
-              <!-- Model buttons section (bottom 50% area) -->
-              <div class="w-full grid grid-cols-1 gap-3">
-                <button
-                  v-for="model in models"
-                  :key="model"
-                  @click="processWithModel(model)"
-                  :disabled="processing"
-                  :class="['p-3 border-2 rounded-lg transition-all font-medium text-base', 
-                           processing ? 'opacity-50 cursor-not-allowed bg-gray-50 border-gray-200' : 'border-primary bg-blue-50 hover:bg-blue-100 cursor-pointer text-gray-900']"
-                >
-                  <span>{{ model.toUpperCase() }}</span>
-                  <span v-if="processing && currentModel === model" class="ml-2 text-sm">Processing...</span>
-                </button>
+              <!-- Text and buttons centered together -->
+              <div class="text-center">
+                <p class="text-lg font-medium text-gray-600 mb-6">Select a model to process</p>
+                
+                <!-- Model buttons section -->
+                <div class="w-48 grid grid-cols-1 gap-3">
+                  <button
+                    v-for="model in models"
+                    :key="model"
+                    @click="processWithModel(model)"
+                    :disabled="processing"
+                    :class="['p-3 border-2 rounded-lg transition-all font-medium text-base', 
+                             processing ? 'opacity-50 cursor-not-allowed bg-gray-50 border-gray-200' : 'border-primary bg-blue-50 hover:bg-blue-100 cursor-pointer text-gray-900']"
+                  >
+                    <span>{{ model.toUpperCase() }}</span>
+                    <span v-if="processing && currentModel === model" class="ml-2 text-sm">Processing...</span>
+                  </button>
+                </div>
               </div>
             </div>
 

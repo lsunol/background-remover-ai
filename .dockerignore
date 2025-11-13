@@ -1,0 +1,33 @@
+# Docker
+.dockerignore
+
+# Python cache
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+.Python
+
+# Env
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+
+# Tests
+tests/__pycache__/
+
+# Frontend
+web/node_modules/
+web/dist/
+web/.vite/
+
+# Hugging Face cache (will be in volume)
+.cache/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,5 +1,17 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+# Add parent directory to path BEFORE importing models (when running directly)
+import sys
+from pathlib import Path
+_api_dir = Path(__file__).parent
+_project_root = _api_dir.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from PIL import Image
 import torch
 import io
@@ -18,6 +30,9 @@ logger = logging.getLogger(__name__)
 
 # Global model manager
 model_manager: Optional[ModelManager] = None
+
+# Rate limiter configuration
+limiter = Limiter(key_func=get_remote_address, default_limits=["100/hour"])
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -43,6 +58,19 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Add rate limiter to app
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # En producción, especifica tu dominio
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 @app.get("/")
 async def root():
     """Health check endpoint"""
@@ -60,8 +88,65 @@ async def list_models():
         "loaded_models": model_manager.list_loaded_models()
     }
 
+@app.get("/models/{model_name}/info")
+async def get_model_info(model_name: str):
+    """Get detailed information about a specific model including citations"""
+    if not model_manager:
+        raise HTTPException(status_code=503, detail="Model manager not initialized")
+    
+    # Model metadata with citations
+    model_citations = {
+        "rmbg-1.4": {
+            "name": "RMBG-1.4",
+            "full_name": "Remove Background Model v1.4",
+            "description": "Bilateral Reference for High-Resolution Dichotomous Image Segmentation",
+            "authors": ["Zheng, Peng", "Gao, Dehong", "Fan, Deng-Ping", "Liu, Li", "Laaksonen, Jorma", "Ouyang, Wanli", "Sebe, Nicu"],
+            "year": 2024,
+            "journal": "CAAI Artificial Intelligence Research",
+            "huggingface": "briaai/RMBG-1.4",
+            "citation": """@article{BiRefNet,
+  title={Bilateral Reference for High-Resolution Dichotomous Image Segmentation},
+  author={Zheng, Peng and Gao, Dehong and Fan, Deng-Ping and Liu, Li and Laaksonen, Jorma and Ouyang, Wanli and Sebe, Nicu},
+  journal={CAAI Artificial Intelligence Research},
+  year={2024}
+}""",
+            "license": "Check Hugging Face model page",
+            "attribution_required": True
+        },
+        "rmbg-2.0": {
+            "name": "RMBG-2.0",
+            "full_name": "Remove Background Model v2.0",
+            "description": "Bilateral Reference for High-Resolution Dichotomous Image Segmentation - Latest version",
+            "authors": ["Zheng, Peng", "Gao, Dehong", "Fan, Deng-Ping", "Liu, Li", "Laaksonen, Jorma", "Ouyang, Wanli", "Sebe, Nicu"],
+            "year": 2024,
+            "journal": "CAAI Artificial Intelligence Research",
+            "huggingface": "briaai/RMBG-2.0",
+            "citation": """@article{BiRefNet,
+  title={Bilateral Reference for High-Resolution Dichotomous Image Segmentation},
+  author={Zheng, Peng and Gao, Dehong and Fan, Deng-Ping and Liu, Li and Laaksonen, Jorma and Ouyang, Wanli and Sebe, Nicu},
+  journal={CAAI Artificial Intelligence Research},
+  year={2024}
+}""",
+            "license": "Check Hugging Face model page",
+            "attribution_required": True
+        }
+    }
+    
+    if model_name not in model_citations:
+        raise HTTPException(status_code=404, detail=f"Model {model_name} not found")
+    
+    info = model_citations[model_name].copy()
+    
+    # Add loading status
+    if model_manager:
+        info["is_loaded"] = model_manager.is_model_loaded(model_name)
+    
+    return info
+
 @app.post("/remove-background")
+@limiter.limit("5/hour")
 async def remove_background(
+    request: Request,
     file: UploadFile = File(...),
     model_name: str = "rmbg-2.0",
     include_mask: bool = False,
@@ -145,12 +230,32 @@ async def unload_model_endpoint(model_name: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error unloading model: {str(e)}")
 
+# Serve static files in production (Docker) but not in development
+# In development, Vite dev server runs separately on port 5173
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
+
+web_dist = Path(__file__).parent.parent / "web" / "dist"
+
+# Only mount static files if dist/ exists (production/Docker build)
+if web_dist.exists() and web_dist.is_dir():
+    try:
+        # Mount static files at root, but API routes take precedence
+        app.mount("/", StaticFiles(directory=str(web_dist), html=True), name="static")
+        logger.info(f"✅ Serving static files from {web_dist}")
+    except Exception as e:
+        logger.warning(f"⚠️  Could not mount static files: {e}")
+else:
+    logger.info(f"ℹ️  Static files not found at {web_dist}")
+    logger.info(f"ℹ️  For development: cd web && npm run dev")
+    logger.info(f"ℹ️  For production: cd web && npm run build")
+
 if __name__ == "__main__":
     import uvicorn
     
     # Read configuration from environment variables
     host = os.getenv("API_HOST", "0.0.0.0")
-    port = int(os.getenv("API_PORT", "8000"))
+    port = int(os.getenv("API_PORT", "8080"))
     debug = os.getenv("API_DEBUG", "false").lower() == "true"
     
     uvicorn.run(app, host=host, port=port, log_level="info")

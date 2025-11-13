@@ -10,11 +10,11 @@ huggingface_hub>=0.15.0
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
 python-multipart>=0.0.6
+slowapi>=0.1.9
 
 # Optional: CUDA support (uncomment if using GPU)
 # torch-audio>=2.0.0
 
 # Additional useful packages
 numpy>=1.21.0
-python-multipart
 kornia

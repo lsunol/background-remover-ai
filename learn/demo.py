@@ -14,7 +14,7 @@ transform_image = transforms.Compose([
     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 ])
 
-image = Image.open('C:\\temp\\IMG_6098.jpeg')
+image = Image.open('C:\\temp\\a6d323cb-26dd-4e67-90c1-55f93040ddef.png').convert("RGB")
 transformed = transform_image(image)
 if isinstance(transformed, torch.Tensor):
     input_images = transformed.unsqueeze(0).to(device)

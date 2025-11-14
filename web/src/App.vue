@@ -59,73 +59,79 @@
 
       <!-- Processing/Results Section -->
       <div v-else>
-        <div class="mb-6 flex justify-between items-center">
-          <button @click="reset" class="btn-secondary">
-            ← Upload New Image
-          </button>
-        </div>
-
         <!-- Two-Column Layout: Original | Background Removed -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <!-- Left Column: Original Image with Radar Scan Effect -->
-          <div class="card flex flex-col">
-            <h3 class="text-lg font-semibold mb-4">Original</h3>
-            <div class="flex-1 checker-pattern rounded-lg p-4 flex items-center justify-center relative overflow-hidden">
-              <!-- Radar scan effect overlay -->
-              <div v-if="isScanning" class="absolute inset-0 pointer-events-none">
-                <div class="radar-scan absolute left-0 w-full h-1 bg-gradient-to-b from-primary/50 to-transparent"
-                     :style="{ top: `${scanProgress}%` }">
-                </div>
-                <!-- Radar points -->
-                <div v-for="(point, idx) in radarPoints" :key="idx"
-                     class="radar-point absolute rounded-full bg-primary"
-                     :style="{
-                       left: `${point.x}%`,
-                       top: `${scanProgress}%`,
-                       width: '8px',
-                       height: '8px',
-                       opacity: point.opacity,
-                       transform: 'translate(-50%, -50%)',
-                       transition: `opacity 0.6s ease-out`
-                     }">
+          <div class="flex flex-col">
+            <div class="card flex flex-col flex-1">
+              <h3 class="text-lg font-semibold mb-4">Original</h3>
+              <div class="flex-1 checker-pattern rounded-lg p-4 flex items-center justify-center relative overflow-hidden"
+                 :style="{ minHeight: originalImageHeight ? `${originalImageHeight}px` : 'auto' }">
+              <!-- Image wrapper with radar overlay constrained to image -->
+              <div class="relative inline-block w-full">
+                <img :src="uploadedImage" alt="Original" class="w-full h-auto mx-auto relative z-10" @load="(e) => originalImageHeight = (e.target as HTMLImageElement).offsetHeight" />
+                
+                <!-- Radar scan effect overlay - constrained to image -->
+                <div v-if="isScanning" class="absolute inset-0 pointer-events-none z-20">
+                  <!-- Scanning line -->
+                  <div class="radar-scan absolute left-0 w-full h-1 bg-gradient-to-b from-primary/60 via-primary/40 to-transparent"
+                       :style="{ top: `${scanProgress}%` }">
+                  </div>
+                  <!-- Radar points (stay fixed where detected) -->
+                  <div v-for="(point, idx) in radarPoints" :key="idx"
+                       class="radar-point absolute rounded-full bg-primary shadow-lg"
+                       :style="{
+                         left: `${point.x}%`,
+                         top: `${point.y}%`,
+                         width: '6px',
+                         height: '6px',
+                         opacity: point.opacity,
+                         transform: 'translate(-50%, -50%)',
+                         transition: `opacity 1s ease-out`,
+                         boxShadow: `0 0 8px rgba(var(--color-primary-rgb), ${point.opacity})`
+                       }">
+                  </div>
                 </div>
               </div>
-              <img :src="uploadedImage" alt="Original" class="w-full h-auto mx-auto relative z-10" />
+            </div>
             </div>
           </div>
 
           <!-- Right Column: Background Removed -->
-          <div class="card flex flex-col">
-            <h3 class="text-lg font-semibold mb-4">Background Removed</h3>
-            
-            <!-- Container with equal height to left column -->
-            <div v-if="selectedModels.length === 0" class="flex-1 checker-pattern rounded-lg p-4 flex flex-col items-center justify-center">
-              <!-- Text and buttons centered together -->
-              <div class="text-center">
-                <p class="text-lg font-medium text-gray-600 mb-6">Select a model to process</p>
-                
-                <!-- Model buttons section -->
-                <div class="w-48 grid grid-cols-1 gap-3">
-                  <button
-                    v-for="model in models"
-                    :key="model"
-                    @click="processWithModel(model)"
-                    :disabled="processing"
-                    :class="['p-3 border-2 rounded-lg transition-all font-medium text-base', 
-                             processing ? 'opacity-50 cursor-not-allowed bg-gray-50 border-gray-200' : 'border-primary bg-blue-50 hover:bg-blue-100 cursor-pointer text-gray-900']"
-                  >
-                    <span>{{ model.toUpperCase() }}</span>
-                    <span v-if="processing && currentModel === model" class="ml-2 text-sm">Processing...</span>
-                  </button>
+          <div class="flex flex-col">
+            <div v-if="selectedModels.length === 0" class="card flex-1">
+              <h3 class="text-lg font-semibold mb-4">Background Removed</h3>
+              <!-- Container with equal height to left column -->
+              <div class="checker-pattern rounded-lg p-4 flex flex-col items-center justify-center flex-1">
+                <!-- Text and buttons centered together -->
+                <div class="text-center">
+                  <p class="text-lg font-medium text-gray-600 mb-6">Select a model to process</p>
+                  
+                  <!-- Model buttons section -->
+                  <div class="w-48 grid grid-cols-1 gap-3">
+                    <button
+                      v-for="model in models"
+                      :key="model"
+                      @click="processWithModel(model)"
+                      :disabled="processing"
+                      :class="['p-3 border-2 rounded-lg transition-all font-medium text-base', 
+                               processing ? 'opacity-50 cursor-not-allowed bg-gray-50 border-gray-200' : 'border-primary bg-blue-50 hover:bg-blue-100 cursor-pointer text-gray-900']"
+                    >
+                      <span>{{ model.toUpperCase() }}</span>
+                      <span v-if="processing && currentModel === model" class="ml-2 text-sm">Processing...</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
 
             <!-- Results Display -->
-            <div v-else class="flex-1 flex flex-col">
-              <div v-for="model in selectedModels" :key="model" class="flex-1 flex flex-col">
-                <div v-if="results[model]" class="flex-1 flex flex-col">
-                  <div class="flex-1 checker-pattern rounded-lg p-4 mb-4 flex items-center justify-center overflow-hidden">
+            <div v-else class="card flex-1">
+              <h3 class="text-lg font-semibold mb-4">Background Removed</h3>
+              <div v-for="model in selectedModels" :key="model" class="flex flex-col">
+                <div v-if="results[model]" class="flex flex-col">
+                  <div class="checker-pattern rounded-lg p-4 mb-4 flex items-center justify-center overflow-hidden" 
+                       :style="{ minHeight: originalImageHeight ? `${originalImageHeight}px` : '300px' }">
                     <img :src="results[model].image" alt="Result" class="w-full h-auto mx-auto" />
                   </div>
                   
@@ -135,19 +141,38 @@
                     <p><strong>Device:</strong> {{ results[model].metadata.device_used }}</p>
                     <p><strong>Size:</strong> {{ results[model].metadata.processed_size.join(' x ') }}px</p>
                   </div>
-
-                  <!-- Download Button -->
-                  <button @click="downloadImage(results[model].image, model)" class="btn-primary w-full">
-                    Download {{ model.toUpperCase() }}
-                  </button>
                 </div>
-                <div v-else class="flex-1 checker-pattern rounded-lg p-4 flex items-center justify-center">
+                <div v-else class="checker-pattern rounded-lg p-4 flex items-center justify-center" 
+                     :style="{ minHeight: originalImageHeight ? `${originalImageHeight}px` : '300px' }">
                   <div class="text-center text-gray-400">
                     <p class="text-sm">Processing with {{ model.toUpperCase() }}...</p>
                   </div>
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        <!-- Buttons Section Below Images -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Upload Button (under left column) -->
+          <div class="flex">
+            <button @click="reset" class="btn-secondary w-full">
+              ← Upload New Image
+            </button>
+          </div>
+
+          <!-- Download Button (under right column) -->
+          <div v-if="selectedModels.length > 0" class="flex flex-col gap-3">
+            <button 
+              v-for="model in selectedModels" 
+              :key="model"
+              @click="downloadImage(results[model].image, model)" 
+              class="btn-primary w-full"
+              v-show="results[model]"
+            >
+              Download .png ({{ model.toUpperCase() }})
+            </button>
           </div>
         </div>
 
@@ -213,14 +238,16 @@ const processing = ref(false)
 const currentModel = ref<string | null>(null)
 const error = ref<string | null>(null)
 const isDragging = ref(false)
+const originalImageHeight = ref<number>(0)
 
 // Radar scan animation
 const isScanning = ref(false)
 const scanProgress = ref(0)
-const radarPoints = ref<Array<{ x: number; opacity: number }>>([])
+const radarPoints = ref<RadarPoint[]>([])
 
 interface RadarPoint {
   x: number
+  y: number
   opacity: number
 }
 
@@ -242,34 +269,57 @@ const citationData = {
 function startRadarScan() {
   isScanning.value = true
   scanProgress.value = 0
+  radarPoints.value = []
   const startTime = Date.now()
-  const duration = 3000 // 3 seconds
+  const totalDuration = 12000 // 12 segundos total (6s bajada + 6s subida)
 
   const animateRadar = () => {
     const elapsed = Date.now() - startTime
-    const progress = elapsed / duration
+    const totalProgress = elapsed / totalDuration
 
-    if (progress >= 1) {
+    if (totalProgress >= 1) {
       isScanning.value = false
       scanProgress.value = 0
       radarPoints.value = []
       return
     }
 
-    scanProgress.value = progress * 100
+    // Rebote: primeros 6 segundos baja (0-100), segundos 6-12 sube (100-0)
+    let scanValue: number
+    if (totalProgress < 0.5) {
+      // Primera mitad: baja
+      scanValue = (totalProgress / 0.5) * 100
+    } else {
+      // Segunda mitad: sube
+      scanValue = (1 - (totalProgress - 0.5) / 0.5) * 100
+    }
 
-    // Generate new points at current scan line
-    if (Math.random() > 0.6) {
+    scanProgress.value = scanValue
+
+    // Generate new points at current scan line (más frecuentemente)
+    if (Math.random() > 0.6 && radarPoints.value.length < 40) {
       const point: RadarPoint = {
         x: Math.random() * 100,
+        y: scanValue, // Capturar posición Y del scanner en este momento
         opacity: 1
       }
       radarPoints.value = [...radarPoints.value, point]
 
-      // Fade out point
-      setTimeout(() => {
-        radarPoints.value = radarPoints.value.filter(p => p !== point)
-      }, 600)
+      // Fade out point durante 1.5 segundos
+      const fadeStartTime = Date.now()
+      const fadeDuration = 1500
+      const fadeFn = () => {
+        const fadeElapsed = Date.now() - fadeStartTime
+        const fadeFraction = fadeElapsed / fadeDuration
+        if (fadeFraction < 1) {
+          point.opacity = Math.max(0, 1 - fadeFraction)
+          requestAnimationFrame(fadeFn)
+        } else {
+          // Remover punto después de que termine el fade
+          radarPoints.value = radarPoints.value.filter(p => p !== point)
+        }
+      }
+      requestAnimationFrame(fadeFn)
     }
 
     requestAnimationFrame(animateRadar)
@@ -277,6 +327,23 @@ function startRadarScan() {
 
   animateRadar()
 }
+
+// Watch for image load to capture its height
+watch(uploadedImage, (newImage) => {
+  if (newImage) {
+    // Esperar a que la imagen se cargue en el DOM
+    setTimeout(() => {
+      const imgElement = document.querySelector('img[alt="Original"]') as HTMLImageElement
+      if (imgElement && imgElement.complete) {
+        originalImageHeight.value = imgElement.offsetHeight
+      } else if (imgElement) {
+        imgElement.onload = () => {
+          originalImageHeight.value = imgElement.offsetHeight
+        }
+      }
+    }, 100)
+  }
+})
 
 function handleDrop(e: DragEvent) {
   isDragging.value = false

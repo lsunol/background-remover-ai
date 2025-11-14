@@ -32,7 +32,18 @@ logger = logging.getLogger(__name__)
 model_manager: Optional[ModelManager] = None
 
 # Rate limiter configuration
-limiter = Limiter(key_func=get_remote_address, default_limits=["100/hour"])
+ENABLE_RATE_LIMIT = os.getenv("ENABLE_RATE_LIMIT", "true").lower() == "true"
+limiter = Limiter(key_func=get_remote_address, default_limits=["100/hour"]) if ENABLE_RATE_LIMIT else None
+
+
+def apply_rate_limit(limit: str):
+    if ENABLE_RATE_LIMIT and limiter:
+        return limiter.limit(limit)
+
+    def decorator(func):
+        return func
+
+    return decorator
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -58,9 +69,10 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Add rate limiter to app
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+# Add rate limiter to app if enabled
+if limiter:
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 
 # Add CORS middleware
 app.add_middleware(
@@ -144,7 +156,7 @@ async def get_model_info(model_name: str):
     return info
 
 @app.post("/remove-background")
-@limiter.limit("5/hour")
+@apply_rate_limit("5/hour")
 async def remove_background(
     request: Request,
     file: UploadFile = File(...),

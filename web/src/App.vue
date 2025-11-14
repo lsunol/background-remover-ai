@@ -65,35 +65,57 @@
           <div class="flex flex-col">
             <div class="card flex flex-col flex-1">
               <h3 class="text-lg font-semibold mb-4">Original</h3>
-              <div class="flex-1 checker-pattern rounded-lg p-4 flex items-center justify-center relative overflow-hidden"
-                 :style="{ minHeight: originalImageHeight ? `${originalImageHeight}px` : 'auto' }">
-              <!-- Image wrapper with radar overlay constrained to image -->
-              <div class="relative inline-block w-full">
-                <img :src="uploadedImage" alt="Original" class="w-full h-auto mx-auto relative z-10" @load="(e) => originalImageHeight = (e.target as HTMLImageElement).offsetHeight" />
-                
-                <!-- Radar scan effect overlay - constrained to image -->
-                <div v-if="isScanning" class="absolute inset-0 pointer-events-none z-20">
-                  <!-- Scanning line -->
-                  <div class="radar-scan absolute left-0 w-full h-1 bg-gradient-to-b from-primary/60 via-primary/40 to-transparent"
-                       :style="{ top: `${scanProgress}%` }">
-                  </div>
-                  <!-- Radar points (stay fixed where detected) -->
-                  <div v-for="(point, idx) in radarPoints" :key="idx"
-                       class="radar-point absolute rounded-full bg-primary shadow-lg"
-                       :style="{
-                         left: `${point.x}%`,
-                         top: `${point.y}%`,
-                         width: '6px',
-                         height: '6px',
-                         opacity: point.opacity,
-                         transform: 'translate(-50%, -50%)',
-                         transition: `opacity 1s ease-out`,
-                         boxShadow: `0 0 8px rgba(var(--color-primary-rgb), ${point.opacity})`
-                       }">
+              <div
+                ref="originalContainerRef"
+                class="flex-1 checker-pattern rounded-lg p-4 flex items-center justify-center relative overflow-hidden"
+                :style="{ minHeight: equalizedHeight }"
+              >
+                <!-- Image wrapper with radar overlay constrained to image -->
+                <div class="relative inline-block w-full">
+                  <img
+                    :src="uploadedImage"
+                    alt="Original"
+                    class="w-full h-auto mx-auto relative z-10"
+                    @load="updateOriginalHeight"
+                  />
+
+                  <!-- Radar scan effect overlay - constrained to image -->
+                  <div v-if="isScanning" class="absolute inset-0 pointer-events-none z-20">
+                    <!-- Scanning line with trailing glow -->
+                    <div
+                      class="radar-scan absolute left-0 w-full pointer-events-none flex flex-col"
+                      :style="{ top: `${scanProgress}%` }"
+                    >
+                      <div
+                        class="w-full h-8"
+                        :class="scanHeading === 'down'
+                          ? 'order-1 bg-gradient-to-t from-emerald-300/70 via-emerald-200/20 to-transparent'
+                          : 'order-2 bg-gradient-to-b from-emerald-300/70 via-emerald-200/20 to-transparent'"
+                      ></div>
+                      <div
+                        class="h-0.5 bg-emerald-400 shadow-[0_0_18px_rgba(16,185,129,0.8)]"
+                        :class="scanHeading === 'down' ? 'order-2' : 'order-1'"
+                      ></div>
+                    </div>
+                    <!-- Radar points (stay fixed where detected) -->
+                    <div
+                      v-for="(point, idx) in radarPoints"
+                      :key="idx"
+                      class="radar-point absolute rounded-full bg-emerald-300 shadow-lg border border-white/40"
+                      :style="{
+                        left: `${point.x}%`,
+                        top: `${point.y}%`,
+                        width: '8px',
+                        height: '8px',
+                        opacity: point.opacity,
+                        transform: 'translate(-50%, -50%)',
+                        transition: `opacity 1s ease-out`,
+                        boxShadow: `0 0 12px rgba(16, 185, 129, ${point.opacity})`
+                      }"
+                    ></div>
                   </div>
                 </div>
               </div>
-            </div>
             </div>
           </div>
 
@@ -102,7 +124,10 @@
             <div v-if="selectedModels.length === 0" class="card flex-1">
               <h3 class="text-lg font-semibold mb-4">Background Removed</h3>
               <!-- Container with equal height to left column -->
-              <div class="checker-pattern rounded-lg p-4 flex flex-col items-center justify-center flex-1">
+              <div
+                class="checker-pattern rounded-lg p-4 flex flex-col items-center justify-center flex-1"
+                :style="{ minHeight: equalizedHeight, height: equalizedHeight }"
+              >
                 <!-- Text and buttons centered together -->
                 <div class="text-center">
                   <p class="text-lg font-medium text-gray-600 mb-6">Select a model to process</p>
@@ -130,20 +155,18 @@
               <h3 class="text-lg font-semibold mb-4">Background Removed</h3>
               <div v-for="model in selectedModels" :key="model" class="flex flex-col">
                 <div v-if="results[model]" class="flex flex-col">
-                  <div class="checker-pattern rounded-lg p-4 mb-4 flex items-center justify-center overflow-hidden" 
-                       :style="{ minHeight: originalImageHeight ? `${originalImageHeight}px` : '300px' }">
+                  <div
+                    class="checker-pattern rounded-lg p-4 mb-4 flex items-center justify-center overflow-hidden"
+                    :style="{ minHeight: equalizedHeight, height: equalizedHeight }"
+                  >
                     <img :src="results[model].image" alt="Result" class="w-full h-auto mx-auto" />
                   </div>
                   
-                  <!-- Metadata -->
-                  <div class="text-sm text-gray-600 mb-4 p-3 bg-gray-50 rounded">
-                    <p><strong>Model:</strong> {{ model.toUpperCase() }}</p>
-                    <p><strong>Device:</strong> {{ results[model].metadata.device_used }}</p>
-                    <p><strong>Size:</strong> {{ results[model].metadata.processed_size.join(' x ') }}px</p>
-                  </div>
                 </div>
-                <div v-else class="checker-pattern rounded-lg p-4 flex items-center justify-center" 
-                     :style="{ minHeight: originalImageHeight ? `${originalImageHeight}px` : '300px' }">
+       <div
+         v-else
+         class="checker-pattern rounded-lg p-4 flex items-center justify-center"
+         :style="{ minHeight: equalizedHeight, height: equalizedHeight }">
                   <div class="text-center text-gray-400">
                     <p class="text-sm">Processing with {{ model.toUpperCase() }}...</p>
                   </div>
@@ -225,7 +248,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount, nextTick, computed } from 'vue'
 import apiService from './services/api'
 // @ts-ignore - import image asset from parent directory
 import portfolioLogo from '../../assets/img/ls-brain-transparent.png'
@@ -239,16 +262,37 @@ const currentModel = ref<string | null>(null)
 const error = ref<string | null>(null)
 const isDragging = ref(false)
 const originalImageHeight = ref<number>(0)
+const originalContainerRef = ref<HTMLElement | null>(null)
+const equalizedHeight = computed(() => originalImageHeight.value ? `${originalImageHeight.value}px` : '320px')
 
 // Radar scan animation
 const isScanning = ref(false)
 const scanProgress = ref(0)
 const radarPoints = ref<RadarPoint[]>([])
+const scanHeading = ref<'down' | 'up'>('down')
 
 interface RadarPoint {
   x: number
   y: number
   opacity: number
+}
+
+let radarAnimationFrame: number | null = null
+let animationStart = 0
+let lastPointTimestamp = 0
+const scanCycleDurationMs = 10000 // full down + up duration
+const pointCooldownMs = 500 // spawn roughly every 0.5s
+const maxRadarPoints = 16
+
+function stopRadarScan() {
+  if (radarAnimationFrame !== null) {
+    cancelAnimationFrame(radarAnimationFrame)
+    radarAnimationFrame = null
+  }
+  isScanning.value = false
+  radarPoints.value = []
+  animationStart = 0
+  lastPointTimestamp = 0
 }
 
 const citationData = {
@@ -267,82 +311,84 @@ const citationData = {
 
 // Radar animation effect
 function startRadarScan() {
+  stopRadarScan()
   isScanning.value = true
   scanProgress.value = 0
   radarPoints.value = []
-  const startTime = Date.now()
-  const totalDuration = 12000 // 12 segundos total (6s bajada + 6s subida)
+  animationStart = performance.now()
+  lastPointTimestamp = animationStart
 
-  const animateRadar = () => {
-    const elapsed = Date.now() - startTime
-    const totalProgress = elapsed / totalDuration
-
-    if (totalProgress >= 1) {
-      isScanning.value = false
-      scanProgress.value = 0
-      radarPoints.value = []
+  const animateRadar = (timestamp: number) => {
+    if (!isScanning.value) {
       return
     }
 
-    // Rebote: primeros 6 segundos baja (0-100), segundos 6-12 sube (100-0)
-    let scanValue: number
-    if (totalProgress < 0.5) {
-      // Primera mitad: baja
-      scanValue = (totalProgress / 0.5) * 100
-    } else {
-      // Segunda mitad: sube
-      scanValue = (1 - (totalProgress - 0.5) / 0.5) * 100
-    }
+    const elapsed = timestamp - animationStart
+    const cycleProgress = (elapsed % scanCycleDurationMs) / scanCycleDurationMs
+    const movingDown = cycleProgress <= 0.5
+    scanHeading.value = movingDown ? 'down' : 'up'
+    const mirroredProgress = movingDown
+      ? cycleProgress * 2
+      : (1 - cycleProgress) * 2
 
-    scanProgress.value = scanValue
+    scanProgress.value = mirroredProgress * 100
 
-    // Generate new points at current scan line (más frecuentemente)
-    if (Math.random() > 0.6 && radarPoints.value.length < 40) {
+    if (timestamp - lastPointTimestamp >= pointCooldownMs) {
+      lastPointTimestamp = timestamp
+      if (radarPoints.value.length >= maxRadarPoints) {
+        radarPoints.value = radarPoints.value.slice(1)
+      }
+      const jitter = (Math.random() - 0.5) * 6
+      const pointY = Math.min(100, Math.max(0, scanProgress.value + jitter))
       const point: RadarPoint = {
         x: Math.random() * 100,
-        y: scanValue, // Capturar posición Y del scanner en este momento
+        y: pointY,
         opacity: 1
       }
       radarPoints.value = [...radarPoints.value, point]
 
-      // Fade out point durante 1.5 segundos
-      const fadeStartTime = Date.now()
-      const fadeDuration = 1500
-      const fadeFn = () => {
-        const fadeElapsed = Date.now() - fadeStartTime
+      const fadeStartTime = timestamp
+      const fadeDuration = 1400
+      const fadeFn = (fadeTimestamp: number) => {
+        const fadeElapsed = fadeTimestamp - fadeStartTime
         const fadeFraction = fadeElapsed / fadeDuration
-        if (fadeFraction < 1) {
+        if (fadeFraction < 1 && isScanning.value) {
           point.opacity = Math.max(0, 1 - fadeFraction)
           requestAnimationFrame(fadeFn)
         } else {
-          // Remover punto después de que termine el fade
           radarPoints.value = radarPoints.value.filter(p => p !== point)
         }
       }
       requestAnimationFrame(fadeFn)
     }
 
-    requestAnimationFrame(animateRadar)
+    radarAnimationFrame = requestAnimationFrame(animateRadar)
   }
 
-  animateRadar()
+  radarAnimationFrame = requestAnimationFrame(animateRadar)
 }
 
-// Watch for image load to capture its height
-watch(uploadedImage, (newImage) => {
-  if (newImage) {
-    // Esperar a que la imagen se cargue en el DOM
-    setTimeout(() => {
-      const imgElement = document.querySelector('img[alt="Original"]') as HTMLImageElement
-      if (imgElement && imgElement.complete) {
-        originalImageHeight.value = imgElement.offsetHeight
-      } else if (imgElement) {
-        imgElement.onload = () => {
-          originalImageHeight.value = imgElement.offsetHeight
-        }
-      }
-    }, 100)
+const updateOriginalHeight = () => {
+  if (originalContainerRef.value) {
+    originalImageHeight.value = originalContainerRef.value.offsetHeight
   }
+}
+
+watch(uploadedImage, async (newImage) => {
+  if (newImage) {
+    await nextTick()
+    requestAnimationFrame(updateOriginalHeight)
+  } else {
+    originalImageHeight.value = 0
+  }
+})
+
+onMounted(() => {
+  window.addEventListener('resize', updateOriginalHeight)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateOriginalHeight)
 })
 
 function handleDrop(e: DragEvent) {
@@ -408,6 +454,7 @@ async function processWithModel(model: string) {
   } finally {
     processing.value = false
     currentModel.value = null
+    stopRadarScan()
   }
 }
 
@@ -423,9 +470,9 @@ function reset() {
   results.value = {}
   selectedModels.value = []
   error.value = null
-  isScanning.value = false
+  stopRadarScan()
   scanProgress.value = 0
-  radarPoints.value = []
   delete (window as any).__uploadedFile
+  originalImageHeight.value = 0
 }
 </script>

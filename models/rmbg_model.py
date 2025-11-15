@@ -4,6 +4,8 @@ from torchvision import transforms
 from transformers import AutoModelForImageSegmentation
 from typing import Tuple, Optional
 import logging
+import os
+from huggingface_hub.errors import GatedRepoError, RepositoryNotFoundError, HFValidationError
 
 from .base_model import BackgroundRemovalModel
 
@@ -36,28 +38,37 @@ class RMBGModel(BackgroundRemovalModel):
         self.transform = None
     
     async def load_model(self) -> None:
-        """Load the RMBG model"""
+        """Load the RMBG model with optional Hugging Face auth token support"""
         try:
-            logger.info(f"Loading {self.model_name} model...")
-            
-            # Load model from Hugging Face
+            logger.info(f"Loading {self.model_name} model (hub: {self.config['hf_model_name']}) ...")
+
+            hf_token = os.getenv("HUGGINGFACE_HUB_TOKEN") or os.getenv("HF_TOKEN")
+
+            # Load model from Hugging Face. use_auth_token deprecated in newer transformers but still accepted; fallback to env var.
+            load_kwargs = {"trust_remote_code": True}
+            if hf_token:
+                load_kwargs["use_auth_token"] = hf_token  # type: ignore[arg-type]
+
             self.model = AutoModelForImageSegmentation.from_pretrained(
                 self.config["hf_model_name"],
-                trust_remote_code=True
+                **load_kwargs
             ).eval().to(self.device)
-            
+
             # Setup transforms
             self.transform = transforms.Compose([
                 transforms.Resize(self.config["image_size"]),
                 transforms.ToTensor(),
                 transforms.Normalize(*self.config["normalize_params"])
             ])
-            
+
             self.is_loaded = True
             logger.info(f"{self.model_name} model loaded successfully on {self.device}")
-            
+
+        except (GatedRepoError, RepositoryNotFoundError, HFValidationError) as e:
+            logger.error(f"Hugging Face access error for {self.model_name}: {e}")
+            raise
         except Exception as e:
-            logger.error(f"Error loading {self.model_name} model: {str(e)}")
+            logger.error(f"Unexpected error loading {self.model_name} model: {str(e)}")
             raise
     
     def preprocess_image(self, image: Image.Image) -> torch.Tensor:

@@ -45,19 +45,37 @@ def apply_rate_limit(limit: str):
 
     return decorator
 
+PRIMARY_MODEL = os.getenv("PRIMARY_MODEL", "rmbg-2.0")
+FALLBACK_MODEL = os.getenv("FALLBACK_MODEL", "rmbg-1.4")
+PRELOAD_MODELS = os.getenv("PRELOAD_MODELS", "true").lower() == "true"
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Manage application lifespan"""
+    """Manage application lifespan with optional preloading and graceful fallback"""
     global model_manager
-    # Startup
-    logger.info("Loading models...")
     model_manager = ModelManager()
-    await model_manager.load_model("rmbg-2.0")
-    logger.info("Models loaded successfully")
-    
+
+    if PRELOAD_MODELS:
+        logger.info(f"Preload enabled. Attempting to load PRIMARY_MODEL={PRIMARY_MODEL}")
+        try:
+            await model_manager.load_model(PRIMARY_MODEL)
+            logger.info(f"Primary model '{PRIMARY_MODEL}' loaded")
+        except Exception as e:
+            logger.warning(f"Primary model '{PRIMARY_MODEL}' failed to load: {e}")
+            if FALLBACK_MODEL and FALLBACK_MODEL != PRIMARY_MODEL:
+                try:
+                    logger.info(f"Attempting fallback model '{FALLBACK_MODEL}'")
+                    await model_manager.load_model(FALLBACK_MODEL)
+                    logger.info(f"Fallback model '{FALLBACK_MODEL}' loaded")
+                except Exception as fe:
+                    logger.error(f"Fallback model '{FALLBACK_MODEL}' also failed: {fe}. Continuing without preloaded models.")
+            else:
+                logger.info("No distinct fallback model configured; continuing without preloaded models.")
+    else:
+        logger.info("Model preloading disabled (PRELOAD_MODELS=false). Models will load lazily on first request.")
+
     yield
-    
-    # Shutdown
+
     if model_manager:
         model_manager.unload_all_models()
         logger.info("All models unloaded")
@@ -83,14 +101,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/")
-async def root():
+@app.get("/api/health")
+async def health_check():
     """Health check endpoint"""
     if not model_manager:
         raise HTTPException(status_code=503, detail="Model manager not initialized")
     return {"message": "Background Remover API is running", "available_models": model_manager.list_available_models()}
 
-@app.get("/models")
+@app.get("/api/models")
 async def list_models():
     """List all available models"""
     if not model_manager:
@@ -100,7 +118,7 @@ async def list_models():
         "loaded_models": model_manager.list_loaded_models()
     }
 
-@app.get("/models/{model_name}/info")
+@app.get("/api/models/{model_name}/info")
 async def get_model_info(model_name: str):
     """Get detailed information about a specific model including citations"""
     if not model_manager:
@@ -155,12 +173,12 @@ async def get_model_info(model_name: str):
     
     return info
 
-@app.post("/remove-background")
+@app.post("/api/remove-background")
 @apply_rate_limit("5/hour")
 async def remove_background(
     request: Request,
     file: UploadFile = File(...),
-    model_name: str = "rmbg-2.0",
+    model_name: str = PRIMARY_MODEL,
     include_mask: bool = False,
     return_metadata: bool = True
 ):
@@ -220,7 +238,7 @@ async def remove_background(
         logger.error(f"Error processing image: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error processing image: {str(e)}")
 
-@app.post("/load-model/{model_name}")
+@app.post("/api/load-model/{model_name}")
 async def load_model_endpoint(model_name: str):
     """Load a specific model"""
     try:
@@ -231,7 +249,7 @@ async def load_model_endpoint(model_name: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error loading model: {str(e)}")
 
-@app.delete("/unload-model/{model_name}")
+@app.delete("/api/unload-model/{model_name}")
 async def unload_model_endpoint(model_name: str):
     """Unload a specific model to free memory"""
     try:

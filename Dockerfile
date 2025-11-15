@@ -7,6 +7,8 @@ WORKDIR /app/web
 COPY web/package*.json ./
 RUN npm install
 COPY web/ ./
+# Also copy shared assets used by the frontend build
+COPY assets/ /app/assets/
 RUN npm run build
 
 # Stage 2: Python backend with frontend
